@@ -5,7 +5,7 @@ import { Recipe } from '../recipes/recipe.model';
 import { map, tap, take, exhaustMap } from 'rxjs/operators';
 import { AuthService } from '../auth/auth.service';
 
-const URL = "URL";
+const URL = "https://shopping-recipes-9acfc.firebaseio.com/recipes.json";
 
 @Injectable({
   providedIn: 'root'
