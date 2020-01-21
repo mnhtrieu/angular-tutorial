@@ -5,6 +5,9 @@ import { throwError, BehaviorSubject } from 'rxjs';
 import { User } from './user.model';
 import { Router } from '@angular/router';
 import { environment } from '../../environments/environment';
+import { Store } from '@ngrx/store';
+import * as fromApp from '../store/app.reducer';
+import * as AuthActions from './store/auth.actions';
 
 export interface AuthResponseData {
   kind: string;
@@ -20,10 +23,10 @@ export interface AuthResponseData {
   providedIn: 'root'
 })
 export class AuthService {
-  user = new BehaviorSubject<User>(null);
+  // user = new BehaviorSubject<User>(null);
   private timer: any;
 
-  constructor(private http: HttpClient, private router: Router){ }
+  constructor(private http: HttpClient, private router: Router, private store: Store<fromApp.AppState>){ }
 
   signup(email: string, password: string){
     return this.http.post<AuthResponseData>("https://identitytoolkit.googleapis.com/v1/accounts:signUp?key=" + environment.firebaseAPIKey,
@@ -47,7 +50,7 @@ export class AuthService {
   }
 
   logout(){
-    this.user.next(null);
+    this.store.dispatch(new AuthActions.Logout());
     this.router.navigate(['/auth']);
     localStorage.removeItem('userData');
     if(this.timer){
@@ -61,7 +64,8 @@ export class AuthService {
     if(!userData) return;
     const user = new User(userData.email, userData.id, userData._token, new Date(userData._tokenExpirationDate));
     if(user.token) {
-      this.user.next(user);
+      // this.user.next(user);
+      this.store.dispatch(new AuthActions.Login({email: user.email, userId: user.id, token: user.token, expirationDate: new Date(userData._tokenExpirationDate)}))
       const duration = new Date(userData._tokenExpirationDate).getTime() - new Date().getTime();
       this.autoLogout(duration);
     }
@@ -70,7 +74,8 @@ export class AuthService {
   private handleAuthentication(email: string, userId: string, token: string, expiresIn: number){
     const expirationDate = new Date(new Date().getTime() + expiresIn * 1000);
     const user = new User(email, userId, token, expirationDate);
-    this.user.next(user);
+    // this.user.next(user);
+    this.store.dispatch(new AuthActions.Login({email: email, userId: userId, token: token, expirationDate:expirationDate}));
     this.autoLogout(expiresIn * 1000);
     localStorage.setItem('userData', JSON.stringify(user));
   }
@@ -83,13 +88,13 @@ export class AuthService {
 
   private handleError(error: HttpErrorResponse){
     let errorMessage = "An unknown error occured!";
-      if(error.error && error.error.error){
-        switch(error.error.error.message){
-          case "EMAIL_EXISTS": errorMessage = "This email exists already!"; break;
-          case "EMAIL_NOT_FOUND": errorMessage = "This email does not exist!"; break;
-          case "INVALID_PASSWORD": errorMessage = "This password is not correct!"; break;
-        }
+    if(error.error && error.error.error){
+      switch(error.error.error.message){
+        case "EMAIL_EXISTS": errorMessage = "This email exists already!"; break;
+        case "EMAIL_NOT_FOUND": errorMessage = "This email does not exist!"; break;
+        case "INVALID_PASSWORD": errorMessage = "This password is not correct!"; break;
       }
-      return throwError(errorMessage);
+    }
+    return throwError(errorMessage);
   }
 }
